@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Citas · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Agenda</p>
+                <h2 class="text-xl font-bold text-slate-800">Citas</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nueva Cita</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">📅 Agenda de Terapias</h3>
+                    <p class="text-sm text-slate-300 mt-1">Sesiones programadas de los estudiantes</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">🗓️</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por estudiante, terapeuta o tipo...">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filtro-estado" class="input !w-auto">
+                            <option value="">Todos los estados</option>
+                            <option>programada</option><option>confirmada</option>
+                            <option>completada</option><option>cancelada</option><option>reprogramada</option>
+                        </select>
+                        <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Estudiante</th><th>Terapeuta</th><th>Fecha</th><th>Hora</th>
+                                <th>Tipo</th><th>Estado</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">📅 Nueva Cita</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Estudiante *</label>
+                    <select id="estudiante_id" class="input mt-1"></select></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Terapeuta *</label>
+                    <select id="terapeuta_id" class="input mt-1"></select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Fecha *</label>
+                    <input id="fecha" type="date" class="input mt-1"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Hora *</label>
+                    <input id="hora" type="time" class="input mt-1"></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Tipo de sesión *</label>
+                    <select id="tipo" class="input mt-1">
+                        <option value="">Seleccionar</option>
+                        <option>Terapia física</option><option>Terapia ocupacional</option>
+                        <option>Terapia de lenguaje</option><option>Psicología</option><option>Valoración</option>
+                    </select></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+        let datosGlobales = [];
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            try { datosGlobales = await api('/agenda/citas'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+            renderizar();
+        }
+
+        function renderizar() {
+            const filtro = document.getElementById('filtro-estado').value;
+            let datos = datosGlobales;
+            if (filtro) datos = datos.filter(c => c.estado === filtro);
+
+            document.getElementById('contador').textContent = datos.length + ' cita(s)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(c => `
+                <tr>
+                    <td class="font-medium text-slate-500">#${c.id}</td>
+                    <td><p class="font-semibold text-slate-800">${c.estudiante_id ? 'Est. #' + c.estudiante_id : '—'}</p>
+                        <p class="text-xs text-slate-400">${escapeHtml(c.tipo || '')}</p></td>
+                    <td>${c.terapeuta_id ? 'Ter. #' + c.terapeuta_id : '—'}</td>
+                    <td>${fechaCorta(c.fecha)}</td>
+                    <td class="font-mono text-xs">${horaCorta(c.hora)}</td>
+                    <td>${escapeHtml(c.tipo || '—')}</td>
+                    <td>${badge(c.estado)}</td>
+                    <td class="text-right whitespace-nowrap">
+                        ${c.estado === 'programada' || c.estado === 'confirmada' ? `
+                        <button class="btn btn-ghost !px-2 !py-1 text-green-600" title="Completar" onclick="cambiarEstado(${c.id},'completada')">✔️</button>
+                        <button class="btn btn-ghost !px-2 !py-1 text-red-600" title="Cancelar" onclick="cambiarEstado(${c.id},'cancelada')">✖️</button>` : ''}
+                    </td>
+                </tr>`).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        document.getElementById('filtro-estado').addEventListener('change', renderizar);
+
+        async function cargarSelects() {
+            await llenarSelect('/personas/estudiantes', 'estudiante_id', e => `${e.nombres} ${e.apellidos}`);
+            await llenarSelect('/personas/terapeutas', 'terapeuta_id', t => `${t.nombres} ${t.apellidos} (${t.especialidad})`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['estudiante_id', 'terapeuta_id', 'fecha', 'hora', 'tipo'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                estudiante_id: parseInt(document.getElementById('estudiante_id').value),
+                terapeuta_id: parseInt(document.getElementById('terapeuta_id').value),
+                fecha: document.getElementById('fecha').value,
+                hora: document.getElementById('hora').value,
+                tipo: document.getElementById('tipo').value
+            };
+            try {
+                await api('/agenda/citas', { method: 'POST', body: JSON.stringify(body) });
+                toast('Cita agendada correctamente');
+                cerrarModal('modal');
+                ['estudiante_id','terapeuta_id','fecha','hora','tipo'].forEach(id => document.getElementById(id).value = '');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function cambiarEstado(id, estado) {
+            if (!(await confirmar('¿Actualizar el estado de la cita a "' + estado + '"?'))) return;
+            try {
+                await api('/agenda/citas/' + id, { method: 'PUT', body: JSON.stringify({ estado }) });
+                toast('Estado actualizado a ' + estado);
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valoraciones · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Agenda</p>
+                <h2 class="text-xl font-bold text-slate-800">Valoraciones</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nueva Valoración</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">🩺 Evaluaciones y Diagnósticos</h3>
+                    <p class="text-sm text-slate-300 mt-1">Seguimiento clínico de cada estudiante</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">📝</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por estudiante o diagnóstico...">
+                    </div>
+                    <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Estudiante</th><th>Fecha</th><th>Diagnóstico</th>
+                                <th>Terapeuta</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">🩺 Nueva Valoración</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Estudiante *</label>
+                    <select id="estudiante_id" class="input mt-1"></select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Fecha *</label>
+                    <input id="fecha" type="date" class="input mt-1"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Terapeuta *</label>
+                    <select id="terapeuta_id" class="input mt-1"></select></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Diagnóstico *</label>
+                    <input id="diagnostico" class="input mt-1" placeholder="Ej. Retraso en el lenguaje"></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Observaciones</label>
+                    <textarea id="observaciones" rows="2" class="input mt-1" placeholder="Evolución del estudiante"></textarea></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            let datos = [];
+            try { datos = await api('/agenda/valoraciones'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+
+            document.getElementById('contador').textContent = datos.length + ' valoración(es)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(v => `
+                <tr>
+                    <td class="font-medium text-slate-500">#${v.id}</td>
+                    <td><p class="font-semibold text-slate-800">Est. #${v.estudiante_id}</p></td>
+                    <td>${fechaCorta(v.fecha)}</td>
+                    <td><span class="badge badge-purple">${escapeHtml(v.diagnostico || 'Sin diagnóstico')}</span></td>
+                    <td>${v.terapeuta_id ? 'Ter. #' + v.terapeuta_id : '—'}</td>
+                    <td class="text-right whitespace-nowrap">
+                        <button class="btn btn-ghost !px-2 !py-1" title="Eliminar" onclick="eliminar(${v.id})">🗑️</button>
+                    </td>
+                </tr>`).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        async function cargarSelects() {
+            await llenarSelect('/personas/estudiantes', 'estudiante_id', e => `${e.nombres} ${e.apellidos}`);
+            await llenarSelect('/personas/terapeutas', 'terapeuta_id', t => `${t.nombres} ${t.apellidos}`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['estudiante_id', 'fecha', 'terapeuta_id', 'diagnostico'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                estudiante_id: parseInt(document.getElementById('estudiante_id').value),
+                fecha: document.getElementById('fecha').value,
+                terapeuta_id: parseInt(document.getElementById('terapeuta_id').value),
+                diagnostico: document.getElementById('diagnostico').value,
+                observaciones: document.getElementById('observaciones').value
+            };
+            try {
+                await api('/agenda/valoraciones', { method: 'POST', body: JSON.stringify(body) });
+                toast('Valoración registrada correctamente');
+                cerrarModal('modal');
+                ['estudiante_id','fecha','terapeuta_id','diagnostico','observaciones'].forEach(id => document.getElementById(id).value = '');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function eliminar(id) {
+            if (!(await confirmar('¿Eliminar esta valoración?'))) return;
+            try {
+                await api('/agenda/valoraciones/' + id, { method: 'DELETE' });
+                toast('Valoración eliminada');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>

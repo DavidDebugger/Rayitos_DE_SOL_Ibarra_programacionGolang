@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horarios · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Agenda</p>
+                <h2 class="text-xl font-bold text-slate-800">Horarios</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nuevo Horario</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">🕐 Disponibilidad de Terapeutas</h3>
+                    <p class="text-sm text-slate-300 mt-1">Días y rangos de hora por profesional</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">⏰</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por terapeuta o día...">
+                    </div>
+                    <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Terapeuta</th><th>Día</th><th>Hora Inicio</th>
+                                <th>Hora Fin</th><th>Disponible</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">🕐 Nuevo Horario</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Terapeuta *</label>
+                    <select id="terapeuta_id" class="input mt-1"></select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Día *</label>
+                    <select id="dia" class="input mt-1">
+                        <option value="">Seleccionar</option>
+                        <option>Lunes</option><option>Martes</option><option>Miércoles</option>
+                        <option>Jueves</option><option>Viernes</option><option>Sábado</option>
+                    </select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Hora inicio *</label>
+                    <input id="hora_inicio" type="time" class="input mt-1"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Hora fin *</label>
+                    <input id="hora_fin" type="time" class="input mt-1"></div>
+                <div class="flex items-end pb-1">
+                    <label class="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                        <input id="disponible" type="checkbox" checked class="w-4 h-4 accent-amber-500"> Disponible
+                    </label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            let datos = [];
+            try { datos = await api('/agenda/horarios'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+
+            document.getElementById('contador').textContent = datos.length + ' horario(s)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(h => `
+                <tr>
+                    <td class="font-medium text-slate-500">#${h.id}</td>
+                    <td><p class="font-semibold text-slate-800">Ter. #${h.terapeuta_id}</p></td>
+                    <td><span class="badge badge-blue">${escapeHtml(h.dia)}</span></td>
+                    <td class="font-mono text-xs">${horaCorta(h.hora_inicio)}</td>
+                    <td class="font-mono text-xs">${horaCorta(h.hora_fin)}</td>
+                    <td>${h.disponible ? badge('activo') : badge('inactivo')}</td>
+                    <td class="text-right whitespace-nowrap">
+                        <button class="btn btn-ghost !px-2 !py-1" title="Eliminar" onclick="eliminar(${h.id})">🗑️</button>
+                    </td>
+                </tr>`).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        async function cargarSelects() {
+            await llenarSelect('/personas/terapeutas', 'terapeuta_id', t => `${t.nombres} ${t.apellidos} (${t.especialidad})`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['terapeuta_id', 'dia', 'hora_inicio', 'hora_fin'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                terapeuta_id: parseInt(document.getElementById('terapeuta_id').value),
+                dia: document.getElementById('dia').value,
+                hora_inicio: document.getElementById('hora_inicio').value,
+                hora_fin: document.getElementById('hora_fin').value,
+                disponible: document.getElementById('disponible').checked
+            };
+            try {
+                await api('/agenda/horarios', { method: 'POST', body: JSON.stringify(body) });
+                toast('Horario creado correctamente');
+                cerrarModal('modal');
+                ['terapeuta_id','dia','hora_inicio','hora_fin'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('disponible').checked = true;
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function eliminar(id) {
+            if (!(await confirmar('¿Eliminar este horario?'))) return;
+            try {
+                await api('/agenda/horarios/' + id, { method: 'DELETE' });
+                toast('Horario eliminado');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>

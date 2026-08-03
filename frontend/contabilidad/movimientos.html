@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movimientos · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Contabilidad</p>
+                <h2 class="text-xl font-bold text-slate-800">Movimientos</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nuevo Movimiento</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">🔄 Entradas y Salidas de Stock</h3>
+                    <p class="text-sm text-slate-300 mt-1">Historial de movimientos de inventario</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">📊</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por artículo o tipo de movimiento...">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filtro-tipo" class="input !w-auto">
+                            <option value="">Todos</option>
+                            <option>entrada</option><option>salida</option>
+                        </select>
+                        <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Artículo</th><th>Tipo</th><th>Cantidad</th>
+                                <th>Fecha</th><th>Observación</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">🔄 Nuevo Movimiento</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Artículo *</label>
+                    <select id="inventario_id" class="input mt-1"></select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Tipo *</label>
+                    <select id="tipo" class="input mt-1">
+                        <option value="">Seleccionar</option>
+                        <option>entrada</option><option>salida</option>
+                    </select></div>
+                <div><label class="text-xs font-semibold text-slate-600">Cantidad *</label>
+                    <input id="cantidad" type="number" min="1" class="input mt-1" placeholder="Ej. 5"></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Observación</label>
+                    <input id="observacion" class="input mt-1" placeholder="Ej. Compra de proveedor"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+        let datosGlobales = [];
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            try { datosGlobales = await api('/contabilidad/movimientos'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+            renderizar();
+        }
+
+        function renderizar() {
+            const filtro = document.getElementById('filtro-tipo').value;
+            let datos = datosGlobales;
+            if (filtro) datos = datos.filter(m => m.tipo === filtro);
+
+            document.getElementById('contador').textContent = datos.length + ' movimiento(s)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(m => `
+                <tr>
+                    <td class="font-medium text-slate-500">#${m.id}</td>
+                    <td><p class="font-semibold text-slate-800">Art. #${m.inventario_id}</p></td>
+                    <td>${m.tipo === 'entrada' ? badge('entrada') : badge('salida')}</td>
+                    <td class="font-semibold">${m.tipo === 'entrada' ? '+' : '−'}${m.cantidad}</td>
+                    <td>${fechaCorta(m.fecha)}</td>
+                    <td class="text-xs text-slate-500 max-w-[200px] truncate">${escapeHtml(m.observacion || '—')}</td>
+                    <td class="text-right whitespace-nowrap">
+                        <button class="btn btn-ghost !px-2 !py-1" title="Eliminar" onclick="eliminar(${m.id})">🗑️</button>
+                    </td>
+                </tr>`).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        document.getElementById('filtro-tipo').addEventListener('change', renderizar);
+
+        async function cargarSelects() {
+            await llenarSelect('/contabilidad/inventario', 'inventario_id', i => `${i.nombre} (stock: ${i.stock})`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['inventario_id', 'tipo', 'cantidad'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                inventario_id: parseInt(document.getElementById('inventario_id').value),
+                tipo: document.getElementById('tipo').value,
+                cantidad: parseInt(document.getElementById('cantidad').value),
+                observacion: document.getElementById('observacion').value
+            };
+            try {
+                await api('/contabilidad/movimientos', { method: 'POST', body: JSON.stringify(body) });
+                toast('Movimiento registrado correctamente');
+                cerrarModal('modal');
+                ['inventario_id','tipo','cantidad','observacion'].forEach(id => document.getElementById(id).value = '');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function eliminar(id) {
+            if (!(await confirmar('¿Eliminar este movimiento?'))) return;
+            try {
+                await api('/contabilidad/movimientos/' + id, { method: 'DELETE' });
+                toast('Movimiento eliminado');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>
