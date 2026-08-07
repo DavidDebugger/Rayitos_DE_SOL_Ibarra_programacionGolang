@@ -2,8 +2,7 @@
 ## Sistema de Gestión "Rayitos de Sol"
 
 > Este documento describe el modelo de base de datos PostgreSQL y la interfaz web (frontend) del sistema.  
-> El desarrollo de los archivos Go (backend API REST) es responsabilidad del equipo de desarrollo.
-
+>
 ---
 
 ## 1. Base de Datos PostgreSQL
