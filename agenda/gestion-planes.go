@@ -1,7 +1,16 @@
 package agenda
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"strings"
+)
+
+// errores comunes del modulo de agenda
+var (
+	ErrEntradaInvalida = errors.New("entrada no valida")
+	ErrNoEncontrado    = errors.New("no se encontro el registro")
 )
 
 // Plan guarda los datos de un plan de terapia
@@ -9,9 +18,9 @@ type Plan struct {
 	ID             int
 	Nombre         string
 	Descripcion    string
-	Duracion       string
-	Frecuencia     string
-	DuracionSesion string
+	Duracion       int
+	Frecuencia     int
+	DuracionSesion int
 	Observaciones  string
 }
 
@@ -29,142 +38,198 @@ func leerTexto(mensaje string) string {
 	return texto
 }
 
-// leerNumero lee un numero
-func leerNumero(mensaje string) int {
+// leerNumero lee un numero y valida que sea numero
+// Regresa el numero y un error si lo escrito es invalido
+func leerNumero(mensaje string) (int, error) {
 	fmt.Print(mensaje)
 	var num int
-	fmt.Scanln(&num)
-	return num
+	_, err := fmt.Scanln(&num)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return 0, io.EOF
+		}
+		if strings.Contains(err.Error(), "newline") {
+			return num, nil
+		}
+		return 0, fmt.Errorf("%w: se esperaba un numero entero", ErrEntradaInvalida)
+	}
+	return num, nil
 }
 
 // RegistrarPlan pide datos y guarda un plan
-func RegistrarPlan() {
+func RegistrarPlan() error {
 	fmt.Println("____ Registrar Plan de Terapia ____")
 
 	var plan Plan
+
+	plan.Nombre = leerTexto("Nombre del plan (ej: Fisioterapia): ")
+	if strings.TrimSpace(plan.Nombre) == "" {
+		return fmt.Errorf("%w: el nombre del plan no puede estar vacio", ErrEntradaInvalida)
+	}
+
+	plan.Descripcion = leerTexto("Descripcion: ")
+
+	dur, err := leerNumero("Duracion total del plan en semanas (ej: 8): ")
+	if err != nil {
+		return err
+	}
+	plan.Duracion = dur
+
+	frec, err := leerNumero("Veces por semana (ej: 3): ")
+	if err != nil {
+		return err
+	}
+	plan.Frecuencia = frec
+
+	sesion, err := leerNumero("Minutos por sesion (ej: 45): ")
+	if err != nil {
+		return err
+	}
+	plan.DuracionSesion = sesion
+
+	plan.Observaciones = leerTexto("Notas adicionales (opcional): ")
+
 	plan.ID = contadorIDPlan
 	contadorIDPlan++
-
-	plan.Nombre = leerTexto("Nombre del plan: ")
-	plan.Descripcion = leerTexto("Descripcion: ")
-	plan.Duracion = leerTexto("Duracion total: ")
-	plan.Frecuencia = leerTexto("Frecuencia por semana: ")
-	plan.DuracionSesion = leerTexto("Duracion de cada sesion: ")
-	plan.Observaciones = leerTexto("Observaciones: ")
-
 	ListaPlanes = append(ListaPlanes, plan)
+
 	fmt.Printf("Plan '%s' registrado con ID %d\n", plan.Nombre, plan.ID)
+	fmt.Println("Puede verlo en: Consultar > 4.Planes")
+	return nil
 }
 
 // ListarPlanes muestra todos los planes
 func ListarPlanes() {
+	fmt.Println("")
 	fmt.Println("____ Lista de Planes ____")
 
 	if len(ListaPlanes) == 0 {
-		fmt.Println("No hay planes registrados")
+		fmt.Println("")
+		fmt.Println("Aun no hay planes registrados")
 		return
 	}
 
+	fmt.Println("")
+	fmt.Printf("Total de planes registrados: %d\n", len(ListaPlanes))
+	fmt.Println("")
+
 	for _, plan := range ListaPlanes {
-		fmt.Printf("[%d] %s - %s - %s\n", plan.ID, plan.Nombre, plan.Descripcion, plan.Frecuencia)
+		fmt.Printf("[%d] %s\n", plan.ID, plan.Nombre)
+		fmt.Printf("    Descripcion: %s\n", plan.Descripcion)
+		fmt.Printf("    Frecuencia: %d vez/veces por semana\n", plan.Frecuencia)
+		fmt.Printf("    Duracion del plan: %d semana(s)\n", plan.Duracion)
+		fmt.Printf("    Duracion de cada sesion: %d minutos\n", plan.DuracionSesion)
+		fmt.Println("")
 	}
 }
 
 // ActualizarPlan modifica datos de un plan
-func ActualizarPlan() {
-	fmt.Println("____ Actualizar Plan ____")
+func ActualizarPlan() error {
+	fmt.Println("---- Actualizar Plan ----")
 
-	if len(ListaPlanes) == 0 {
-		fmt.Println("No hay planes registrados")
-		return
+	id, err := leerNumero("ID del plan: ")
+	if err != nil {
+		return err
 	}
 
-	id := leerNumero("ID del plan: ")
-
-	for i := range ListaPlanes {
-		if ListaPlanes[i].ID == id {
-			plan := &ListaPlanes[i]
-			fmt.Printf("Plan: %s\n", plan.Nombre)
-
-			nuevoNombre := leerTexto("Nuevo nombre (Enter para no cambiar): ")
-			if nuevoNombre != "" {
-				plan.Nombre = nuevoNombre
-			}
-
-			nuevaDescripcion := leerTexto("Nueva descripcion (Enter para no cambiar): ")
-			if nuevaDescripcion != "" {
-				plan.Descripcion = nuevaDescripcion
-			}
-
-			nuevaDuracion := leerTexto("Nueva duracion (Enter para no cambiar): ")
-			if nuevaDuracion != "" {
-				plan.Duracion = nuevaDuracion
-			}
-
-			nuevaFrecuencia := leerTexto("Nueva frecuencia (Enter para no cambiar): ")
-			if nuevaFrecuencia != "" {
-				plan.Frecuencia = nuevaFrecuencia
-			}
-
-			fmt.Println("Plan actualizado")
-			return
-		}
+	plan, err := BuscarPlanPorID(id)
+	if err != nil {
+		return err
 	}
-	fmt.Printf("No se encontro plan con ID %d\n", id)
+
+	fmt.Printf("Plan: %s\n", plan.Nombre)
+
+	nuevoNombre := leerTexto("Nuevo nombre (Enter para no cambiar): ")
+	if strings.TrimSpace(nuevoNombre) != "" {
+		plan.Nombre = nuevoNombre
+	}
+
+	nuevaDescripcion := leerTexto("Nueva descripcion (Enter para no cambiar): ")
+	if strings.TrimSpace(nuevaDescripcion) != "" {
+		plan.Descripcion = nuevaDescripcion
+	}
+
+	nuevaDuracion, err := leerNumero("Nueva duracion en semanas (0 para no cambiar): ")
+	if err != nil {
+		return err
+	}
+	if nuevaDuracion > 0 {
+		plan.Duracion = nuevaDuracion
+	}
+
+	nuevaFrecuencia, err := leerNumero("Nuevas veces por semana (0 para no cambiar): ")
+	if err != nil {
+		return err
+	}
+	if nuevaFrecuencia > 0 {
+		plan.Frecuencia = nuevaFrecuencia
+	}
+
+	nuevaSesion, err := leerNumero("Nuevos minutos por sesion (0 para no cambiar): ")
+	if err != nil {
+		return err
+	}
+	if nuevaSesion > 0 {
+		plan.DuracionSesion = nuevaSesion
+	}
+
+	fmt.Println("Plan actualizado")
+	return nil
 }
 
 // EliminarPlan borra un plan
-func EliminarPlan() {
-	fmt.Println("____ Eliminar Plan ____")
+func EliminarPlan() error {
+	fmt.Println("---- Eliminar Plan ----")
 
-	if len(ListaPlanes) == 0 {
-		fmt.Println("No hay planes registrados")
-		return
+	id, err := leerNumero("ID del plan a eliminar: ")
+	if err != nil {
+		return err
 	}
-
-	id := leerNumero("ID del plan a eliminar: ")
 
 	for i := range ListaPlanes {
 		if ListaPlanes[i].ID == id {
 			fmt.Printf("Plan '%s' eliminado\n", ListaPlanes[i].Nombre)
 			ListaPlanes = append(ListaPlanes[:i], ListaPlanes[i+1:]...)
-			return
+			return nil
 		}
 	}
-	fmt.Printf("No se encontro plan con ID %d\n", id)
+	return fmt.Errorf("%w: plan con ID %d", ErrNoEncontrado, id)
 }
 
 // BuscarPlanPorID busca un plan por ID
-func BuscarPlanPorID(id int) *Plan {
+// Regresa un error cuando no existe
+func BuscarPlanPorID(id int) (*Plan, error) {
 	for i := range ListaPlanes {
 		if ListaPlanes[i].ID == id {
-			return &ListaPlanes[i]
+			return &ListaPlanes[i], nil
 		}
 	}
-	return nil
+	return nil, fmt.Errorf("%w: plan con ID %d", ErrNoEncontrado, id)
 }
 
 // DetallePlan muestra todos los datos de un plan
-func DetallePlan() {
+func DetallePlan() error {
+	fmt.Println("")
 	fmt.Println("____ Detalle de Plan ____")
 
-	if len(ListaPlanes) == 0 {
-		fmt.Println("No hay planes registrados")
-		return
+	id, err := leerNumero("ID del plan a consultar: ")
+	if err != nil {
+		return err
 	}
 
-	id := leerNumero("ID del plan: ")
-	plan := BuscarPlanPorID(id)
-	if plan == nil {
-		fmt.Printf("No se encontro plan con ID %d\n", id)
-		return
+	plan, err := BuscarPlanPorID(id)
+	if err != nil {
+		return err
 	}
 
-	fmt.Printf("ID: %d\n", plan.ID)
+	fmt.Println("")
+	fmt.Printf("Datos del plan de terapia ID %d:\n", plan.ID)
+	fmt.Println("--------------------------------------------------")
 	fmt.Printf("Nombre: %s\n", plan.Nombre)
 	fmt.Printf("Descripcion: %s\n", plan.Descripcion)
-	fmt.Printf("Duracion: %s\n", plan.Duracion)
-	fmt.Printf("Frecuencia: %s\n", plan.Frecuencia)
-	fmt.Printf("Duracion sesion: %s\n", plan.DuracionSesion)
+	fmt.Printf("Duracion: %d semana(s)\n", plan.Duracion)
+	fmt.Printf("Frecuencia: %d vez/veces por semana\n", plan.Frecuencia)
+	fmt.Printf("Duracion de cada sesion: %d minutos\n", plan.DuracionSesion)
 	fmt.Printf("Observaciones: %s\n", plan.Observaciones)
+	return nil
 }

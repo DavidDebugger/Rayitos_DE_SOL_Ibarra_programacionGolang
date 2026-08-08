@@ -1,22 +1,41 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"strings"
 
 	"RDSI/agenda"
 	"RDSI/personas"
 )
 
-// leerNumero lee un numero entero (simple para estudiantes)
-func leerNumero(mensaje string) int {
+// ConectarBaseDeDatos conecta... cuando haya base de datos real
+func ConectarBaseDeDatos() {
+	fmt.Println("Base de datos: Pendiente (no se usa GORM por ahora)")
+}
+
+// leerNumero lee un numero entero y valida la entrada
+// Regresa el numero y un error si lo escrito no es un numero
+func leerNumero(mensaje string) (int, error) {
 	fmt.Print(mensaje)
 	var num int
-	fmt.Scanln(&num)
-	return num
+	_, err := fmt.Scanln(&num)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return 0, io.EOF
+		}
+		if strings.Contains(err.Error(), "newline") {
+			return num, nil
+		}
+		return 0, fmt.Errorf("entrada invalida: se esperaba un numero entero")
+	}
+	return num, nil
 }
 
 // mostrarMenuPrincipal imprime el menu principal
 func mostrarMenuPrincipal() {
+	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("___ Menu Principal ___")
 	fmt.Println("1. Registrar")
@@ -29,6 +48,7 @@ func mostrarMenuPrincipal() {
 
 // mostrarMenuRegistrar muestra las opciones para registrar
 func mostrarMenuRegistrar() {
+	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("___ Registrar ___")
 	fmt.Println("1. Estudiante")
@@ -43,6 +63,7 @@ func mostrarMenuRegistrar() {
 
 // mostrarMenuConsultar muestra las opciones para consultar
 func mostrarMenuConsultar() {
+	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("___ Consultar ___")
 	fmt.Println("1. Estudiantes")
@@ -62,6 +83,7 @@ func mostrarMenuConsultar() {
 // mostrarMenuActualizar muestra las opciones para actualizar
 func mostrarMenuActualizar() {
 	fmt.Println("")
+	fmt.Println("")
 	fmt.Println("___ Actualizar ___")
 	fmt.Println("1. Estudiante")
 	fmt.Println("2. Representante")
@@ -75,6 +97,7 @@ func mostrarMenuActualizar() {
 
 // mostrarMenuEliminar muestra las opciones para eliminar
 func mostrarMenuEliminar() {
+	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("___ Eliminar ___")
 	fmt.Println("1. Estudiante")
@@ -91,21 +114,41 @@ func mostrarMenuEliminar() {
 func submenuRegistrar() {
 	for {
 		mostrarMenuRegistrar()
-		opcion := leerNumero("")
+		opcion, err := leerNumero("")
+		if errors.Is(err, io.EOF) {
+			fmt.Println("")
+			return
+		}
+		if err != nil {
+			fmt.Println("Error de opcion:", err)
+			continue
+		}
 
 		switch opcion {
 		case 1:
-			personas.RegistrarEstudiante()
+			if err := personas.RegistrarEstudiante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 2:
-			personas.RegistrarRepresentante()
+			if err := personas.RegistrarRepresentante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 3:
-			personas.RegistrarTerapeuta()
+			if err := personas.RegistrarTerapeuta(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 4:
-			agenda.RegistrarPlan()
+			if err := agenda.RegistrarPlan(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 5:
-			agenda.RegistrarCita()
+			if err := agenda.RegistrarCita(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 6:
-			agenda.RegistrarAsistencia()
+			if err := agenda.RegistrarAsistencia(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 7:
 			return
 		default:
@@ -118,7 +161,15 @@ func submenuRegistrar() {
 func submenuConsultar() {
 	for {
 		mostrarMenuConsultar()
-		opcion := leerNumero("")
+		opcion, err := leerNumero("")
+		if errors.Is(err, io.EOF) {
+			fmt.Println("")
+			return
+		}
+		if err != nil {
+			fmt.Println("Error de opcion:", err)
+			continue
+		}
 
 		switch opcion {
 		case 1:
@@ -138,9 +189,13 @@ func submenuConsultar() {
 		case 8:
 			agenda.ListarAsistenciasPorEstudiante()
 		case 9:
-			personas.DetalleEstudiante()
+			if err := personas.DetalleEstudiante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 10:
-			agenda.DetalleCita()
+			if err := agenda.DetalleCita(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 11:
 			return
 		default:
@@ -153,21 +208,41 @@ func submenuConsultar() {
 func submenuActualizar() {
 	for {
 		mostrarMenuActualizar()
-		opcion := leerNumero("")
+		opcion, err := leerNumero("")
+		if errors.Is(err, io.EOF) {
+			fmt.Println("")
+			return
+		}
+		if err != nil {
+			fmt.Println("Error de opcion:", err)
+			continue
+		}
 
 		switch opcion {
 		case 1:
-			personas.ActualizarEstudiante()
+			if err := personas.ActualizarEstudiante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 2:
-			personas.ActualizarRepresentante()
+			if err := personas.ActualizarRepresentante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 3:
-			personas.ActualizarTerapeuta()
+			if err := personas.ActualizarTerapeuta(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 4:
-			agenda.ActualizarPlan()
+			if err := agenda.ActualizarPlan(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 5:
-			agenda.ActualizarCita()
+			if err := agenda.ActualizarCita(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 6:
-			agenda.ActualizarAsistencia()
+			if err := agenda.ActualizarAsistencia(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 7:
 			return
 		default:
@@ -180,21 +255,41 @@ func submenuActualizar() {
 func submenuEliminar() {
 	for {
 		mostrarMenuEliminar()
-		opcion := leerNumero("")
+		opcion, err := leerNumero("")
+		if errors.Is(err, io.EOF) {
+			fmt.Println("")
+			return
+		}
+		if err != nil {
+			fmt.Println("Error de opcion:", err)
+			continue
+		}
 
 		switch opcion {
 		case 1:
-			personas.EliminarEstudiante()
+			if err := personas.EliminarEstudiante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 2:
-			personas.EliminarRepresentante()
+			if err := personas.EliminarRepresentante(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 3:
-			personas.EliminarTerapeuta()
+			if err := personas.EliminarTerapeuta(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 4:
-			agenda.EliminarPlan()
+			if err := agenda.EliminarPlan(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 5:
-			agenda.EliminarCita()
+			if err := agenda.EliminarCita(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 6:
-			agenda.EliminarAsistencia()
+			if err := agenda.EliminarAsistencia(); err != nil {
+				fmt.Println("Error:", err)
+			}
 		case 7:
 			return
 		default:
@@ -207,11 +302,20 @@ func submenuEliminar() {
 func main() {
 	ConectarBaseDeDatos()
 
+	fmt.Println("")
 	fmt.Println("___ Bienvenido al Sistema Rayitos de Sol ___")
 
 	for {
 		mostrarMenuPrincipal()
-		opcion := leerNumero("")
+		opcion, err := leerNumero("")
+		if errors.Is(err, io.EOF) {
+			fmt.Println("")
+			return
+		}
+		if err != nil {
+			fmt.Println("Error de opcion:", err)
+			continue
+		}
 
 		switch opcion {
 		case 1:
