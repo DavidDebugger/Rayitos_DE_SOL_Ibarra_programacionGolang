@@ -21,6 +21,22 @@ var ListaPlanes []Plan
 // contador para IDs
 var contadorIDPlan = 1
 
+// leerTexto lee una palabra
+func leerTexto(mensaje string) string {
+	fmt.Print(mensaje)
+	var texto string
+	fmt.Scanln(&texto)
+	return texto
+}
+
+// leerNumero lee un numero
+func leerNumero(mensaje string) int {
+	fmt.Print(mensaje)
+	var num int
+	fmt.Scanln(&num)
+	return num
+}
+
 // RegistrarPlan pide datos y guarda un plan
 func RegistrarPlan() {
 	fmt.Println("____ Registrar Plan de Terapia ____")
