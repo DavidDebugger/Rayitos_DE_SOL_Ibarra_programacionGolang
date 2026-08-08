@@ -7,6 +7,14 @@ import (
 	"RDSI/personas"
 )
 
+// leerNumero lee un numero entero (simple para estudiantes)
+func leerNumero(mensaje string) int {
+	fmt.Print(mensaje)
+	var num int
+	fmt.Scanln(&num)
+	return num
+}
+
 // mostrarMenuPrincipal imprime el menu principal
 func mostrarMenuPrincipal() {
 	fmt.Println("")
@@ -77,14 +85,6 @@ func mostrarMenuEliminar() {
 	fmt.Println("6. Asistencia")
 	fmt.Println("7. Regresar")
 	fmt.Print("Opcion: ")
-}
-
-// leerNumero lee un numero entero
-func leerNumero(mensaje string) int {
-	fmt.Print(mensaje)
-	var num int
-	fmt.Scanf("%d\n", &num)
-	return num
 }
 
 // submenuRegistrar maneja el menu de registrar

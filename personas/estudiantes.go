@@ -26,6 +26,22 @@ var ListaEstudiantes []Estudiante
 // contador para IDs
 var contadorIDEst = 1
 
+// leerTexto lee una palabra
+func leerTexto(mensaje string) string {
+	fmt.Print(mensaje)
+	var texto string
+	fmt.Scanln(&texto)
+	return texto
+}
+
+// leerNumero lee un numero
+func leerNumero(mensaje string) int {
+	fmt.Print(mensaje)
+	var num int
+	fmt.Scanln(&num)
+	return num
+}
+
 // RegistrarEstudiante pide los datos y guarda un nuevo estudiante
 func RegistrarEstudiante() {
 	fmt.Println("____ Registrar Estudiante ____")
