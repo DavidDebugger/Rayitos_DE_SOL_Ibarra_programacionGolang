@@ -1,24 +1,33 @@
 package web
 
-// api.go expone las entidades como API JSON.
-// Las rutas son:
-//   GET  /api/{entidad}        -> lista
-//   POST /api/{entidad}        -> crea
-//   GET  /api/{entidad}/{id}   -> uno
-//   PUT  /api/{entidad}/{id}   -> reemplaza
-//   DELETE /api/{entidad}/{id} -> borra
+/* api.go expone las entidades como API JSON.
+   Rutas:
+     GET    /api                     - indice
+     GET    /api/estadisticas        - totales por entidad
+     GET    /api/{entidad}           - lista
+     POST   /api/{entidad}           - crea
+     GET    /api/{entidad}/contar    - cuenta
+     GET    /api/{entidad}/buscar    - filtra por campo y valor
+     GET    /api/{entidad}/{id}      - uno
+     PUT    /api/{entidad}/{id}      - actualiza
+     DELETE /api/{entidad}/{id}      - borra
+*/
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
-// escribirJSON envia un codigo HTTP y un dato cualquiera como JSON.
+// escribirJSON envia un codigo HTTP y un dato como JSON indentado.
 func escribirJSON(w http.ResponseWriter, codigo int, datos any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(codigo)
-	_ = json.NewEncoder(w).Encode(datos)
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(datos)
 }
 
 // leerCuerpoJSON lee el cuerpo de la peticion y lo convierte a JSON.
@@ -30,11 +39,83 @@ func leerCuerpoJSON(r *http.Request, destino any) error {
 	return json.Unmarshal(cuerpo, destino)
 }
 
-// metodoNoPermitido responde cuando usan un verbo HTTP que no soportamos.
+// metodoNoPermitido responde cuando usan un verbo HTTP no soportado.
 func metodoNoPermitido(w http.ResponseWriter, r *http.Request) {
 	escribirJSON(w, http.StatusMethodNotAllowed, map[string]string{
 		"error": "metodo " + r.Method + " no permitido en esta ruta",
 	})
+}
+
+// apiIndice describe la API: entidades y servicios disponibles.
+func apiIndice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		metodoNoPermitido(w, r)
+		return
+	}
+	servicios := []map[string]string{
+		{"metodo": "GET", "ruta": "/api", "descripcion": "Indice de la API"},
+		{"metodo": "GET", "ruta": "/api/estadisticas", "descripcion": "Totales por entidad"},
+		{"metodo": "GET", "ruta": "/api/{entidad}", "descripcion": "Listar registros"},
+		{"metodo": "POST", "ruta": "/api/{entidad}", "descripcion": "Crear registro"},
+		{"metodo": "GET", "ruta": "/api/{entidad}/contar", "descripcion": "Contar registros"},
+		{"metodo": "GET", "ruta": "/api/{entidad}/buscar", "descripcion": "Buscar por campo y valor"},
+		{"metodo": "GET", "ruta": "/api/{entidad}/{id}", "descripcion": "Ver un registro"},
+		{"metodo": "PUT", "ruta": "/api/{entidad}/{id}", "descripcion": "Actualizar registro"},
+		{"metodo": "DELETE", "ruta": "/api/{entidad}/{id}", "descripcion": "Borrar registro"},
+	}
+	escribirJSON(w, http.StatusOK, map[string]any{
+		"entidades": []string{
+			"representantes", "terapeutas", "planes", "estudiantes", "citas", "facturas",
+		},
+		"servicios": servicios,
+	})
+}
+
+// apiEstadisticas devuelve la cantidad de registros de cada entidad.
+func apiEstadisticas(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		metodoNoPermitido(w, r)
+		return
+	}
+	escribirJSON(w, http.StatusOK, map[string]int{
+		"representantes": len(obtenerRepresentantes()),
+		"terapeutas":     len(obtenerTerapeutas()),
+		"planes":         len(obtenerPlanes()),
+		"estudiantes":    len(obtenerEstudiantes()),
+		"citas":          len(obtenerCitas()),
+		"facturas":       len(obtenerFacturas()),
+	})
+}
+
+// apiContar devuelve el numero de registros de una entidad.
+func apiContar(w http.ResponseWriter, r *http.Request, entidad string) {
+	if r.Method != http.MethodGet {
+		metodoNoPermitido(w, r)
+		return
+	}
+	escribirJSON(w, http.StatusOK, map[string]int{"total": len(listaComoMapas(entidad))})
+}
+
+// apiBuscar filtra los registros de una entidad por campo y valor (subcadena).
+func apiBuscar(w http.ResponseWriter, r *http.Request, entidad string) {
+	if r.Method != http.MethodGet {
+		metodoNoPermitido(w, r)
+		return
+	}
+	campo := r.URL.Query().Get("campo")
+	valor := strings.ToLower(r.URL.Query().Get("valor"))
+	if campo == "" {
+		escribirJSON(w, http.StatusBadRequest, map[string]string{"error": "falta el parametro campo"})
+		return
+	}
+	todos := listaComoMapas(entidad)
+	filtrados := []map[string]any{}
+	for _, f := range todos {
+		if strings.Contains(strings.ToLower(fmt.Sprintf("%v", f[campo])), valor) {
+			filtrados = append(filtrados, f)
+		}
+	}
+	escribirJSON(w, http.StatusOK, filtrados)
 }
 
 // apiColeccion maneja GET (listar) y POST (crear) de una entidad.
@@ -58,7 +139,6 @@ func apiColeccion(w http.ResponseWriter, r *http.Request, entidad string) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "terapeutas":
 		switch r.Method {
 		case http.MethodGet:
@@ -77,7 +157,6 @@ func apiColeccion(w http.ResponseWriter, r *http.Request, entidad string) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "planes":
 		switch r.Method {
 		case http.MethodGet:
@@ -96,7 +175,6 @@ func apiColeccion(w http.ResponseWriter, r *http.Request, entidad string) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "estudiantes":
 		switch r.Method {
 		case http.MethodGet:
@@ -115,7 +193,6 @@ func apiColeccion(w http.ResponseWriter, r *http.Request, entidad string) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "citas":
 		switch r.Method {
 		case http.MethodGet:
@@ -134,7 +211,6 @@ func apiColeccion(w http.ResponseWriter, r *http.Request, entidad string) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "facturas":
 		switch r.Method {
 		case http.MethodGet:
@@ -191,7 +267,6 @@ func apiPorID(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "terapeutas":
 		switch r.Method {
 		case http.MethodGet:
@@ -224,7 +299,6 @@ func apiPorID(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "planes":
 		switch r.Method {
 		case http.MethodGet:
@@ -257,7 +331,6 @@ func apiPorID(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "estudiantes":
 		switch r.Method {
 		case http.MethodGet:
@@ -290,7 +363,6 @@ func apiPorID(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "citas":
 		switch r.Method {
 		case http.MethodGet:
@@ -323,7 +395,6 @@ func apiPorID(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 		default:
 			metodoNoPermitido(w, r)
 		}
-
 	case "facturas":
 		switch r.Method {
 		case http.MethodGet:

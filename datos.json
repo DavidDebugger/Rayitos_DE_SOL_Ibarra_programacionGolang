@@ -1,26 +1,26 @@
 {
   "representantes": [
-    { "ID": 1, "Nombre": "Ana Lopez", "Telefono": "0412-1112233", "Correo": "ana@example.com", "Relacion": "Madre", "EstudianteID": 1 },
-    { "ID": 2, "Nombre": "Carlos Ruiz", "Telefono": "0414-4445566", "Correo": "carlos@example.com", "Relacion": "Padre", "EstudianteID": 2 }
+    { "ID": 1, "Nombre": "Ana Lopez", "Cedula": "0104567890", "Telefono": "0991234567", "Correo": "ana@uide.ec", "Relacion": "Madre", "EstudianteID": 1 },
+    { "ID": 2, "Nombre": "Carlos Ruiz", "Cedula": "0201234567", "Telefono": "0987654321", "Correo": "carlos@uide.ec", "Relacion": "Padre", "EstudianteID": 2 }
   ],
   "terapeutas": [
-    { "ID": 1, "Nombre": "Dra. Maria Pena", "Especialidad": "Terapia ocupacional", "Telefono": "0412-7778899", "Correo": "maria@example.com" },
-    { "ID": 2, "Nombre": "Lic. Juan Soto", "Especialidad": "Fisioterapia", "Telefono": "0416-2223344", "Correo": "juan@example.com" }
+    { "ID": 1, "Nombre": "Dra. Maria Pena", "Especialidad": "Terapia ocupacional", "Telefono": "0997778899", "Correo": "maria@rayitos.ec" },
+    { "ID": 2, "Nombre": "Lic. EStefania Posada", "Especialidad": "Fisioterapia", "Telefono": "0992223344", "Correo": "estef@rayitos.ec" }
   ],
   "planes": [
-    { "ID": 1, "Nombre": "Plan mensual", "Precio": 120.50, "Sesiones": 8 },
-    { "ID": 2, "Nombre": "Plan trimestral", "Precio": 330.00, "Sesiones": 24 }
+    { "ID": 1, "Nombre": "Plan mensual", "Precio": 75.00, "Sesiones": 8 },
+    { "ID": 2, "Nombre": "Plan trimestral", "Precio": 200.00, "Sesiones": 24 }
   ],
   "estudiantes": [
     { "ID": 1, "Nombre": "Luis Lopez", "Edad": 7, "Diagnostico": "Retraso motor leve", "RepresentanteID": 1 },
     { "ID": 2, "Nombre": "Sofia Ruiz", "Edad": 5, "Diagnostico": "Trastorno del lenguaje", "RepresentanteID": 2 }
   ],
   "citas": [
-    { "ID": 1, "EstudianteID": 1, "TerapeutaID": 1, "Fecha": "2026-09-01", "Hora": "09:00", "Estado": "Programada" },
-    { "ID": 2, "EstudianteID": 2, "TerapeutaID": 2, "Fecha": "2026-09-02", "Hora": "10:30", "Estado": "Programada" }
+    { "ID": 1, "EstudianteID": 1, "TerapeutaID": 1, "Fecha": "2026-09-25", "Hora": "09:00", "Estado": "Programada" },
+    { "ID": 2, "EstudianteID": 2, "TerapeutaID": 2, "Fecha": "2026-09-26", "Hora": "10:30", "Estado": "Programada" }
   ],
   "facturas": [
-    { "ID": 1, "EstudianteID": 1, "PlanID": 1, "Monto": 120.50, "Fecha": "2026-09-01", "Estado": "Pendiente" },
-    { "ID": 2, "EstudianteID": 2, "PlanID": 2, "Monto": 330.00, "Fecha": "2026-09-02", "Estado": "Pagada" }
+    { "ID": 1, "EstudianteID": 1, "PlanID": 1, "Monto": 75.00, "Fecha": "2026-09-01", "Estado": "Pendiente" },
+    { "ID": 2, "EstudianteID": 2, "PlanID": 2, "Monto": 200.00, "Fecha": "2026-09-02", "Estado": "Pagada" }
   ]
 }

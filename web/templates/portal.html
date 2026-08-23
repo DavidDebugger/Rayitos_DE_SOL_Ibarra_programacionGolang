@@ -1,0 +1,111 @@
+{{define "cabecera"}}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rayitos de Sol - {{.Titulo}}</title>
+<link rel="stylesheet" href="/estilos.css">
+</head>
+<body>
+<div class="barra"><span>Rayitos de Sol</span><a href="/portal">Inicio</a></div>
+<div class="cuerpo">
+<nav class="menu">
+{{range .Menu}}<a href="/portal/{{.Plural}}"{{if eq .Plural $.MenuActivo}} class="activo"{{end}}>{{.Label}}</a>
+{{end}}
+</nav>
+<main class="principal">
+{{end}}
+
+{{define "ver"}}
+{{template "cabecera" .}}
+<h1>Ver {{.Label}}</h1>
+<p>Datos del registro en formato JSON:</p>
+<pre class="json">{{.JSON}}</pre>
+<p><a class="boton" href="/portal/{{.MenuActivo}}">Volver al listado</a></p>
+{{template "pie" .}}
+{{end}}
+
+{{define "pie"}}
+</main>
+</div>
+</body>
+</html>
+{{end}}
+
+{{define "inicio"}}
+{{template "cabecera" .}}
+<h1>Bienvenido a Rayitos de Sol</h1>
+<p>Sistema de terapias para ninos. Usa el menu <b>Servicios Web</b> para ver la lista de servicios (API) disponibles, o elige una entidad para gestionar sus registros.</p>
+{{template "pie" .}}
+{{end}}
+
+{{define "listar"}}
+{{template "cabecera" .}}
+<h1>{{.Label}}s</h1>
+<a class="boton" href="/portal/{{.MenuActivo}}/nuevo">Crear {{.Label}}</a>
+<table>
+<thead>
+<tr>{{range .Columnas}}<th>{{.}}</th>{{end}}<th>Acciones</th></tr>
+</thead>
+<tbody>
+{{if eq (len .Filas) 0}}
+<tr><td colspan="{{.Colspan}}">No hay registros.</td></tr>
+{{else}}
+{{range $fila := .Filas}}
+<tr>
+{{range $c := $.Columnas}}<td>{{index $fila $c}}</td>{{end}}
+<td class="acciones">
+<a href="/portal/{{$.MenuActivo}}/{{$fila.ID}}/editar">Editar</a>
+<a href="/portal/{{$.MenuActivo}}/{{$fila.ID}}/ver">Ver</a>
+<form method="post" action="/portal/{{$.MenuActivo}}/{{$fila.ID}}/borrar" style="display:inline">
+<button type="submit">Borrar</button>
+</form>
+</td>
+</tr>
+{{end}}
+{{end}}
+</tbody>
+</table>
+{{template "pie" .}}
+{{end}}
+
+{{define "formulario"}}
+{{template "cabecera" .}}
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+<form method="post" action="{{.Accion}}">
+{{range .Campos}}
+<label>{{.Etiqueta}}</label>
+<input type="{{.Tipo}}" name="{{.Nombre}}" value="{{index $.Valores .Nombre}}">
+{{end}}
+<p><button type="submit">Guardar</button> <a href="/portal/{{.MenuActivo}}">Cancelar</a></p>
+</form>
+{{template "pie" .}}
+{{end}}
+
+{{define "servicios"}}
+{{template "cabecera" .}}
+<h1>Servicios Web (API)</h1>
+<p>Estos son los 9 servicios que expone la API. Cada uno responde en formato JSON. En la ultima columna se muestra el JSON que la API serializa: en los GET es la respuesta real (obtenida al ejecutar la peticion) y en POST/PUT es el cuerpo JSON de ejemplo que acepta la API.</p>
+<table>
+<thead><tr><th>Metodo</th><th>Ruta</th><th>Descripcion</th><th>JSON (serializacion)</th></tr></thead>
+<tbody>
+{{range .Servicios}}<tr>
+<td class="metodo-{{.Metodo}}">{{.Metodo}}</td>
+<td><code>{{.Ruta}}</code></td>
+<td>{{.Desc}}</td>
+<td class="ejemplo"><pre class="json">{{if .Ejemplo}}{{.Ejemplo}}{{else if .Cuerpo}}{{.Cuerpo}}{{else}}(sin cuerpo){{end}}</pre></td>
+</tr>{{end}}
+</tbody>
+</table>
+{{template "pie" .}}
+{{end}}
+
+{{define "probar"}}
+{{template "cabecera" .}}
+<h1>Resultado de la API</h1>
+<p>Respuesta de la peticion de ejemplo:</p>
+<pre class="json">{{.JSON}}</pre>
+<p><a class="boton" href="/portal/servicios">Volver a Servicios</a></p>
+{{template "pie" .}}
+{{end}}

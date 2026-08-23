@@ -21,7 +21,7 @@ func main() {
 		fmt.Println("Se inicia con el almacen vacio.")
 	}
 
-	fmt.Println("Servidor corriendo en http://localhost:8080")
+	fmt.Println("Servidor de Rayitos de Sol corriendo en http://localhost:8080")
 	if err := web.Servir(); err != nil {
 		fmt.Println("Error en el servidor:", err)
 	}

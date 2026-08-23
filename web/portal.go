@@ -1,28 +1,28 @@
 package web
 
-// portal.go genera las paginas web del portal (HTML del servidor, sin JavaScript).
-// El usuario usa formularios normales para crear, editar y borrar.
+// portal.go tiene la logica de las paginas del portal (sin HTML ni CSS embebidos).
+// El HTML esta en templates/portal.html y el CSS en templates/estilos.css.
 
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strconv"
+	"net/http/httptest"
 	"strings"
 )
 
 // campoForm describe un campo del formulario de una entidad.
 type campoForm struct {
-	nombre   string
-	etiqueta string
-	tipo     string // text, email, number, date, time
+	Nombre   string
+	Etiqueta string
+	Tipo     string // text, email, number, date, time
 }
 
 // camposForm lista los campos editables de cada entidad (sin el ID).
 var camposForm = map[string][]campoForm{
 	"representantes": {
 		{"Nombre", "Nombre", "text"},
+		{"Cedula", "Cedula", "text"},
 		{"Telefono", "Telefono", "text"},
 		{"Correo", "Correo", "email"},
 		{"Relacion", "Relacion con el estudiante", "text"},
@@ -63,7 +63,7 @@ var camposForm = map[string][]campoForm{
 
 // columnasEntidad define el orden de las columnas en la tabla de listado.
 var columnasEntidad = map[string][]string{
-	"representantes": {"ID", "Nombre", "Telefono", "Correo", "Relacion", "EstudianteID"},
+	"representantes": {"ID", "Nombre", "Cedula", "Telefono", "Correo", "Relacion", "EstudianteID"},
 	"terapeutas":     {"ID", "Nombre", "Especialidad", "Telefono", "Correo"},
 	"planes":         {"ID", "Nombre", "Precio", "Sesiones"},
 	"estudiantes":    {"ID", "Nombre", "Edad", "Diagnostico", "RepresentanteID"},
@@ -79,90 +79,10 @@ var etiquetas = map[string]string{
 	"estudiantes":    "Estudiante",
 	"citas":          "Cita",
 	"facturas":       "Factura",
+	"servicios":      "Servicios Web",
 }
 
-// escapar evita inyeccion de HTML en los valores que se muestran.
-func escapar(s string) string {
-	r := strings.NewReplacer("<", "&lt;", ">", "&gt;", "&", "&amp;", "\"", "&quot;")
-	return r.Replace(s)
-}
-
-// portalEstilos devuelve el CSS comun de todas las paginas.
-func portalEstilos() string {
-	return `
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f4f6f8; color: #222; }
-  .barra { background: #ffb703; color: #222; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; }
-  .barra a { color: #222; text-decoration: none; font-weight: bold; }
-  .cuerpo { display: flex; min-height: calc(100vh - 48px); }
-  .menu { width: 200px; background: #023047; padding: 14px; }
-  .menu a { display: block; color: #fff; text-decoration: none; padding: 9px 10px; border-radius: 6px; margin-bottom: 4px; }
-  .menu a:hover { background: #03506f; }
-  .menu a.activo { background: #ffb703; color: #222; }
-  .principal { flex: 1; padding: 22px; }
-  h1 { margin-top: 0; }
-  table { border-collapse: collapse; width: 100%; background: #fff; margin-bottom: 16px; }
-  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
-  th { background: #e9f1f5; }
-  a.boton, button { background: #ffb703; color: #222; border: none; padding: 8px 12px; border-radius: 6px; text-decoration: none; cursor: pointer; font-weight: bold; }
-  .acciones a, .acciones button { margin-right: 6px; font-size: 13px; background: #e9f1f5; padding: 4px 8px; border-radius: 5px; text-decoration: none; color: #023047; }
-  label { display: block; margin-top: 10px; font-weight: bold; }
-  input { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #bbb; border-radius: 6px; }
-  .error { background: #ffe3e3; color: #a00; padding: 10px; border-radius: 6px; }
-  form { max-width: 460px; background: #fff; padding: 16px; border-radius: 8px; }
-`
-}
-
-// pagina envuelve el contenido en la plantilla general del portal.
-func pagina(titulo, menuActivo, cuerpo string) string {
-	menu := ""
-	items := []struct {
-		plural string
-		label  string
-	}{
-		{"representantes", "Representantes"},
-		{"terapeutas", "Terapeutas"},
-		{"planes", "Planes"},
-		{"estudiantes", "Estudiantes"},
-		{"citas", "Citas"},
-		{"facturas", "Facturas"},
-	}
-	for _, it := range items {
-		cls := ""
-		if it.plural == menuActivo {
-			cls = " class=\"activo\""
-		}
-		menu += fmt.Sprintf("      <a href=\"/portal/%s\"%s>%s</a>\n", it.plural, cls, it.label)
-	}
-	return fmt.Sprintf(`<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rayitos de Sol - %s</title>
-<style>%s</style>
-</head>
-<body>
-<div class="barra"><span>Rayitos de Sol</span><a href="/portal">Inicio</a></div>
-<div class="cuerpo">
-<nav class="menu">
-%s</nav>
-<main class="principal">
-%s
-</main>
-</div>
-</body>
-</html>`, escapar(titulo), portalEstilos(), menu, cuerpo)
-}
-
-// portalInicio es la pagina principal del portal.
-func portalInicio(w http.ResponseWriter, r *http.Request) {
-	cuerpo := "<h1>Bienvenido al portal</h1>" +
-		"<p>Elige una entidad en el menu para ver, crear, editar o borrar registros.</p>"
-	io.WriteString(w, pagina("Inicio", "", cuerpo))
-}
-
-// listaComoMapas convierte la lista de una entidad en mapas para dibujar la tabla.
+// listaComoMapas convierte la lista de una entidad en mapas para la plantilla.
 func listaComoMapas(entidad string) []map[string]any {
 	var datos any
 	switch entidad {
@@ -231,76 +151,44 @@ func itemComoMapa(entidad string, id int) (map[string]any, bool) {
 func valoresForm(r *http.Request, entidad string) map[string]any {
 	m := map[string]any{}
 	for _, c := range camposForm[entidad] {
-		m[c.nombre] = r.FormValue(c.nombre)
+		m[c.Nombre] = r.FormValue(c.Nombre)
 	}
 	return m
 }
 
-// renderTabla arma la tabla HTML de listado con sus acciones por fila.
-func renderTabla(entidad string, filas []map[string]any) string {
-	cols := columnasEntidad[entidad]
-	html := "<table><thead><tr>"
-	for _, c := range cols {
-		html += "<th>" + escapar(c) + "</th>"
-	}
-	html += "<th>Acciones</th></tr></thead><tbody>"
-	if len(filas) == 0 {
-		html += "<tr><td colspan=\"" + strconv.Itoa(len(cols)+1) + "\">No hay registros.</td></tr>"
-	}
-	for _, f := range filas {
-		html += "<tr>"
-		for _, c := range cols {
-			html += "<td>" + escapar(fmt.Sprintf("%v", f[c])) + "</td>"
-		}
-		id := fmt.Sprintf("%v", f["ID"])
-		acciones := "<a href=\"/portal/" + entidad + "/" + id + "/editar\">Editar</a>" +
-			" <a href=\"/api/" + entidad + "/" + id + "\" target=\"_blank\">Ver</a>" +
-			" <form method=\"post\" action=\"/portal/" + entidad + "/" + id + "/borrar\" " +
-			"onsubmit=\"return confirm('¿Seguro que quieres borrar?')\" style=\"display:inline\">" +
-			"<button type=\"submit\">Borrar</button></form>"
-		html += "<td class=\"acciones\">" + acciones + "</td></tr>"
-	}
-	html += "</tbody></table>"
-	return html
+// portalInicio es la pagina principal del portal.
+func portalInicio(w http.ResponseWriter, r *http.Request) {
+	servirPlantilla(w, r, paginaDatos{Vista: "inicio", Titulo: "Inicio", Menu: menuPortal()})
 }
 
-// portalListar muestra la tabla de una entidad con el boton de crear.
+// portalListar muestra la tabla de una entidad.
 func portalListar(w http.ResponseWriter, r *http.Request, entidad string) {
-	filas := listaComoMapas(entidad)
 	label := etiquetas[entidad]
-	boton := "<a class=\"boton\" href=\"/portal/" + entidad + "/nuevo\">Crear " + escapar(label) + "</a>"
-	cuerpo := "<h1>" + escapar(label) + "s</h1>" + boton + renderTabla(entidad, filas)
-	io.WriteString(w, pagina(label+"s", entidad, cuerpo))
-}
-
-// formulario arma el HTML del formulario para crear o editar.
-func formulario(entidad string, datos map[string]any, id int) string {
-	accion := "/portal/" + entidad
-	if id > 0 {
-		accion = fmt.Sprintf("/portal/%s/%d", entidad, id)
-	}
-	campos := ""
-	for _, c := range camposForm[entidad] {
-		valor := ""
-		if datos != nil {
-			if v, ok := datos[c.nombre]; ok {
-				valor = fmt.Sprintf("%v", v)
-			}
-		}
-		campos += "<label>" + escapar(c.etiqueta) + "</label>\n" +
-			"<input type=\"" + c.tipo + "\" name=\"" + c.nombre + "\" value=\"" + escapar(valor) + "\">\n"
-	}
-	return "<form method=\"post\" action=\"" + accion + "\">\n" +
-		campos +
-		"<p><button type=\"submit\">Guardar</button> " +
-		"<a href=\"/portal/" + entidad + "\">Cancelar</a></p>\n</form>"
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "listar",
+		Titulo:     label + "s",
+		MenuActivo: entidad,
+		Menu:       menuPortal(),
+		Label:      label,
+		Columnas:   columnasEntidad[entidad],
+		Filas:      listaComoMapas(entidad),
+		Colspan:    len(columnasEntidad[entidad]) + 1,
+	})
 }
 
 // portalCrear muestra el formulario vacio.
 func portalCrear(w http.ResponseWriter, r *http.Request, entidad string) {
 	label := etiquetas[entidad]
-	cuerpo := "<h1>Crear " + escapar(label) + "</h1>" + formulario(entidad, nil, 0)
-	io.WriteString(w, pagina("Crear "+label, entidad, cuerpo))
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "formulario",
+		Titulo:     "Crear " + label,
+		MenuActivo: entidad,
+		Menu:       menuPortal(),
+		Label:      label,
+		Accion:     "/portal/" + entidad,
+		Campos:     camposForm[entidad],
+		Valores:    map[string]any{},
+	})
 }
 
 // portalEditar muestra el formulario con los datos actuales.
@@ -311,13 +199,25 @@ func portalEditar(w http.ResponseWriter, r *http.Request, entidad string, id int
 		return
 	}
 	label := etiquetas[entidad]
-	cuerpo := "<h1>Editar " + escapar(label) + "</h1>" + formulario(entidad, m, id)
-	io.WriteString(w, pagina("Editar "+label, entidad, cuerpo))
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "formulario",
+		Titulo:     "Editar " + label,
+		MenuActivo: entidad,
+		Menu:       menuPortal(),
+		Label:      label,
+		Accion:     fmt.Sprintf("/portal/%s/%d", entidad, id),
+		Campos:     camposForm[entidad],
+		Valores:    m,
+	})
 }
 
 // portalGuardar recibe el POST del formulario y crea o actualiza.
 func portalGuardar(w http.ResponseWriter, r *http.Request, entidad string, id int) {
 	r.ParseForm()
+	accion := "/portal/" + entidad
+	if id > 0 {
+		accion = fmt.Sprintf("/portal/%s/%d", entidad, id)
+	}
 	var err error
 	switch entidad {
 	case "representantes":
@@ -414,12 +314,66 @@ func portalGuardar(w http.ResponseWriter, r *http.Request, entidad string, id in
 
 	if err != nil {
 		label := etiquetas[entidad]
-		cuerpo := "<p class=\"error\">" + escapar(err.Error()) + "</p>" +
-			formulario(entidad, valoresForm(r, entidad), id)
-		io.WriteString(w, pagina("Error al guardar "+label, entidad, cuerpo))
+		servirPlantilla(w, r, paginaDatos{
+			Vista:      "formulario",
+			Titulo:     "Error al guardar " + label,
+			MenuActivo: entidad,
+			Menu:       menuPortal(),
+			Label:      label,
+			Accion:     accion,
+			Campos:     camposForm[entidad],
+			Valores:    valoresForm(r, entidad),
+			Error:      err.Error(),
+		})
 		return
 	}
 	http.Redirect(w, r, "/portal/"+entidad, http.StatusSeeOther)
+}
+
+// portalVer muestra el JSON de un registro dentro del portal (frontend).
+func portalVer(w http.ResponseWriter, r *http.Request, entidad string, id int) {
+	var datos any
+	var ok bool
+	switch entidad {
+	case "representantes":
+		var v Representante
+		v, ok = obtenerRepresentante(id)
+		datos = v
+	case "terapeutas":
+		var v Terapeuta
+		v, ok = obtenerTerapeuta(id)
+		datos = v
+	case "planes":
+		var v Plan
+		v, ok = obtenerPlan(id)
+		datos = v
+	case "estudiantes":
+		var v Estudiante
+		v, ok = obtenerEstudiante(id)
+		datos = v
+	case "citas":
+		var v Cita
+		v, ok = obtenerCita(id)
+		datos = v
+	case "facturas":
+		var v Factura
+		v, ok = obtenerFactura(id)
+		datos = v
+	}
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	b, _ := json.MarshalIndent(datos, "", "  ")
+	label := etiquetas[entidad]
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "ver",
+		Titulo:     "Ver " + label,
+		MenuActivo: entidad,
+		Menu:       menuPortal(),
+		Label:      label,
+		JSON:       string(b),
+	})
 }
 
 // portalBorrar recibe el POST de borrar y redirige al listado.
@@ -441,11 +395,73 @@ func portalBorrar(w http.ResponseWriter, r *http.Request, entidad string, id int
 	http.Redirect(w, r, "/portal/"+entidad, http.StatusSeeOther)
 }
 
+// portalServicios muestra la vista de los servicios web (la API) del sistema.
+// portalServicios muestra los 9 servicios reales de la API y, para cada uno,
+// el JSON que la API serializa. En los GET se ejecuta la peticion de solo
+// lectura contra la API para mostrar la respuesta real; en POST/PUT se muestra
+// el cuerpo JSON de ejemplo que espera la API. Asi se nota la serializacion.
+func portalServicios(w http.ResponseWriter, r *http.Request) {
+	// jsonLectura ejecuta una peticion GET de solo lectura contra la API
+	// (sin mutar el almacen) y devuelve el cuerpo serializado en JSON.
+	jsonLectura := func(ruta string) string {
+		req := httptest.NewRequest(http.MethodGet, ruta, nil)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		enrutar(rec, req)
+		return rec.Body.String()
+	}
+	serv := []servicioWeb{
+		{Metodo: "GET", Ruta: "/api", Desc: "Indice: entidades y servicios disponibles", Ejemplo: jsonLectura("/api")},
+		{Metodo: "GET", Ruta: "/api/estadisticas", Desc: "Totales de registros por entidad", Ejemplo: jsonLectura("/api/estadisticas")},
+		{Metodo: "GET", Ruta: "/api/planes", Desc: "Listar todos los registros de una entidad", Ejemplo: jsonLectura("/api/planes")},
+		{Metodo: "POST", Ruta: "/api/planes", Desc: "Crear un registro de una entidad", Cuerpo: `{"Nombre":"Plan de prueba","Precio":50,"Sesiones":4}`},
+		{Metodo: "GET", Ruta: "/api/estudiantes/contar", Desc: "Cantidad de registros de una entidad", Ejemplo: jsonLectura("/api/estudiantes/contar")},
+		{Metodo: "GET", Ruta: "/api/facturas/buscar?campo=Estado&valor=Pendiente", Desc: "Filtrar por campo y valor (query)", Ejemplo: jsonLectura("/api/facturas/buscar?campo=Estado&valor=Pendiente")},
+		{Metodo: "GET", Ruta: "/api/citas/1", Desc: "Ver un registro por su ID", Ejemplo: jsonLectura("/api/citas/1")},
+		{Metodo: "PUT", Ruta: "/api/citas/1", Desc: "Actualizar un registro por su ID", Cuerpo: `{"Estado":"Realizada"}`},
+		{Metodo: "DELETE", Ruta: "/api/citas/1", Desc: "Borrar un registro por su ID"},
+	}
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "servicios",
+		Titulo:     "Servicios Web",
+		MenuActivo: "servicios",
+		Menu:       menuPortal(),
+		Servicios:  serv,
+	})
+}
+
+// portalProbar ejecuta una peticion a la API a partir de parametros en la URL
+// y muestra el resultado. Asi los servicios POST/PUT/DELETE se prueban con
+// un hipervinculo (el navegador solo envia GET) sin usar JavaScript.
+func portalProbar(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "metodo no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+	q := r.URL.Query()
+	metodo := q.Get("metodo")
+	ruta := q.Get("ruta")
+	cuerpo := q.Get("cuerpo")
+	req := httptest.NewRequest(metodo, ruta, strings.NewReader(cuerpo))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	enrutar(rec, req)
+	resultado := fmt.Sprintf("HTTP %d\n\n%s", rec.Code, rec.Body.String())
+	servirPlantilla(w, r, paginaDatos{
+		Vista:      "probar",
+		Titulo:     "Resultado de la API",
+		MenuActivo: "servicios",
+		Menu:       menuPortal(),
+		JSON:       resultado,
+	})
+}
+
 // ---- Lectura de formularios (convierte el texto del formulario a cada struct) ----
 
 func formARepresentante(r *http.Request) Representante {
 	return Representante{
 		Nombre:       r.FormValue("Nombre"),
+		Cedula:       r.FormValue("Cedula"),
 		Telefono:     r.FormValue("Telefono"),
 		Correo:       r.FormValue("Correo"),
 		Relacion:     r.FormValue("Relacion"),

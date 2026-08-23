@@ -5,9 +5,11 @@ package web
 // Los nombres de campos y comentarios usan español sin acentos.
 
 // Representante es el adulto responsable de un estudiante.
+// Cedula es la cedula de identidad de 10 digitos.
 type Representante struct {
 	ID           int
 	Nombre       string
+	Cedula       string
 	Telefono     string
 	Correo       string
 	Relacion     string

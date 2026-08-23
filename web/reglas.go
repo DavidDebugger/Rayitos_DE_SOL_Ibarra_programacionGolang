@@ -2,12 +2,15 @@ package web
 
 // reglas.go tiene las validaciones de cada entidad.
 // Cada funcion regresa un error si algo obligatorio esta vacio.
-
+//En pocas es para el manejo de errores validando las respuestas 
 import "errors"
 
 func validarRepresentante(r Representante) error {
 	if r.Nombre == "" {
 		return errors.New("el nombre del representante es obligatorio")
+	}
+	if len(r.Cedula) != 10 {
+		return errors.New("la cedula debe tener 10 digitos")
 	}
 	if r.Telefono == "" {
 		return errors.New("el telefono del representante es obligatorio")

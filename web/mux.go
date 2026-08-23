@@ -14,7 +14,9 @@ func enrutar(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case ruta == "/" || ruta == "/portal" || ruta == "/portal/":
 		portalInicio(w, r)
-	case strings.HasPrefix(ruta, "/api/"):
+	case ruta == "/estilos.css":
+		servirCSS(w, r)
+	case strings.HasPrefix(ruta, "/api"):
 		manejarAPI(w, r, ruta)
 	case strings.HasPrefix(ruta, "/portal/"):
 		manejarPortal(w, r, ruta)
@@ -25,23 +27,48 @@ func enrutar(w http.ResponseWriter, r *http.Request) {
 
 // manejarAPI parsea /api/{entidad} y /api/{entidad}/{id}.
 func manejarAPI(w http.ResponseWriter, r *http.Request, ruta string) {
-	partes := strings.Split(strings.Trim(ruta, "/"), "/") // ["api", entidad, id?]
-	if len(partes) < 2 {
-		escribirJSON(w, http.StatusNotFound, map[string]string{"error": "ruta no encontrada"})
+	partes := strings.Split(strings.Trim(ruta, "/"), "/") // ["api", entidad, ...]
+
+	// /api sin nada mas: indice de entidades
+	if len(partes) == 1 {
+		apiIndice(w, r)
 		return
 	}
+
+	// /api/estadisticas: totales por entidad
+	if partes[1] == "estadisticas" {
+		apiEstadisticas(w, r)
+		return
+	}
+
 	entidad, ok := normalizarEntidad(partes[1])
 	if !ok {
 		escribirJSON(w, http.StatusNotFound, map[string]string{"error": "entidad no valida"})
 		return
 	}
+
+	// /api/{entidad}: coleccion (listar o crear)
 	if len(partes) == 2 {
 		apiColeccion(w, r, entidad)
 		return
 	}
+
+	// /api/{entidad}/contar  y  /api/{entidad}/buscar (solo GET)
+	if len(partes) == 3 {
+		switch partes[2] {
+		case "contar":
+			apiContar(w, r, entidad)
+			return
+		case "buscar":
+			apiBuscar(w, r, entidad)
+			return
+		}
+	}
+
+	// /api/{entidad}/{id}: uno (ver, actualizar o borrar)
 	id, err := strconv.Atoi(partes[2])
 	if err != nil {
-		escribirJSON(w, http.StatusBadRequest, map[string]string{"error": "id invalido"})
+		escribirJSON(w, http.StatusBadRequest, map[string]string{"error": "ruta no valida"})
 		return
 	}
 	apiPorID(w, r, entidad, id)
@@ -52,6 +79,22 @@ func manejarPortal(w http.ResponseWriter, r *http.Request, ruta string) {
 	partes := strings.Split(strings.Trim(ruta, "/"), "/") // ["portal", entidad, ...]
 	if len(partes) < 2 || partes[1] == "" {
 		portalInicio(w, r)
+		return
+	}
+	if partes[1] == "servicios" {
+		if r.Method == http.MethodGet {
+			portalServicios(w, r)
+		} else {
+			http.Error(w, "metodo no permitido", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+	if partes[1] == "probar" {
+		if r.Method == http.MethodGet {
+			portalProbar(w, r)
+		} else {
+			http.Error(w, "metodo no permitido", http.StatusMethodNotAllowed)
+		}
 		return
 	}
 	entidad, ok := normalizarEntidad(partes[1])
@@ -97,6 +140,10 @@ func manejarPortal(w http.ResponseWriter, r *http.Request, ruta string) {
 	}
 	if len(partes) == 4 && partes[3] == "borrar" && r.Method == http.MethodPost {
 		portalBorrar(w, r, entidad, id)
+		return
+	}
+	if len(partes) == 4 && partes[3] == "ver" && r.Method == http.MethodGet {
+		portalVer(w, r, entidad, id)
 		return
 	}
 	http.NotFound(w, r)
