@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estudiantes · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Personas</p>
+                <h2 class="text-xl font-bold text-slate-800">Estudiantes</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nuevo Estudiante</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">👥 Gestión de Estudiantes</h3>
+                    <p class="text-sm text-slate-300 mt-1">Niños y niñas que reciben terapias en el centro</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">🎒</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por nombre, apellido o cédula...">
+                    </div>
+                    <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Estudiante</th><th>Edad</th><th>Género</th>
+                                <th>Diagnóstico</th><th>Representante</th><th>Plan</th><th>Estado</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">🎒 Nuevo Estudiante</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label class="text-xs font-semibold text-slate-600">Nombres *</label>
+                    <input id="nombres" class="input mt-1" placeholder="Nombres del estudiante"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Apellidos *</label>
+                    <input id="apellidos" class="input mt-1" placeholder="Apellidos del estudiante"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Fecha de nacimiento *</label>
+                    <input id="fecha_nacimiento" type="date" class="input mt-1"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Género</label>
+                    <select id="genero" class="input mt-1"><option value="">Seleccionar</option><option>Masculino</option><option>Femenino</option></select></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Diagnóstico</label>
+                    <textarea id="diagnostico" class="input mt-1" rows="2" placeholder="Diagnóstico o condición"></textarea></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Dirección</label>
+                    <input id="direccion" class="input mt-1" placeholder="Dirección de domicilio"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Teléfono</label>
+                    <input id="telefono" class="input mt-1" placeholder="Contacto del estudiante"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Representante *</label>
+                    <select id="representante_id" class="input mt-1"></select></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Plan de terapia</label>
+                    <select id="plan_id" class="input mt-1"></select></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            let datos = [];
+            try { datos = await api('/personas/estudiantes'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+
+            document.getElementById('contador').textContent = datos.length + ' registro(s)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(e => {
+                const edad = edadDe(e.fecha_nacimiento);
+                return `
+                <tr>
+                    <td class="font-medium text-slate-500">#${e.id}</td>
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">${iniciales(e.nombres, e.apellidos)}</div>
+                            <div>
+                                <p class="font-semibold text-slate-800">${escapeHtml(e.nombres)} ${escapeHtml(e.apellidos)}</p>
+                                <p class="text-xs text-slate-400">${escapeHtml(e.telefono || 'Sin teléfono')}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${edad !== null ? edad + ' años' : '—'}</td>
+                    <td>${escapeHtml(e.genero || '—')}</td>
+                    <td class="max-w-[180px] truncate" title="${escapeHtml(e.diagnostico)}">${escapeHtml(e.diagnostico || '—')}</td>
+                    <td>Rep. #${e.representante_id || '—'}</td>
+                    <td>${e.plan_id ? 'Plan #' + e.plan_id : 'Sin plan'}</td>
+                    <td>${badge(e.estado)}</td>
+                    <td class="text-right whitespace-nowrap">
+                        <button class="btn btn-ghost !px-2 !py-1" title="Eliminar" onclick="eliminar(${e.id})">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        function edadDe(fecha) {
+            if (!fecha) return null;
+            const f = new Date(fecha.slice(0, 10));
+            if (isNaN(f)) return null;
+            const hoy = new Date();
+            let edad = hoy.getFullYear() - f.getFullYear();
+            if (hoy.getMonth() < f.getMonth() || (hoy.getMonth() === f.getMonth() && hoy.getDate() < f.getDate())) edad--;
+            return edad;
+        }
+        function iniciales(n, a) {
+            return ((n || '?')[0] || '') + ((a || '?')[0] || '');
+        }
+
+        async function cargarSelects() {
+            await llenarSelect('/personas/representantes', 'representante_id', r => `${r.nombres} ${r.apellidos} (${r.cedula})`);
+            await llenarSelect('/agenda/planes', 'plan_id', p => `${p.nombre} — ${p.numero_sesiones} sesiones`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['nombres', 'apellidos', 'fecha_nacimiento', 'representante_id'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                nombres: document.getElementById('nombres').value,
+                apellidos: document.getElementById('apellidos').value,
+                fecha_nacimiento: document.getElementById('fecha_nacimiento').value,
+                genero: document.getElementById('genero').value,
+                diagnostico: document.getElementById('diagnostico').value,
+                direccion: document.getElementById('direccion').value,
+                telefono: document.getElementById('telefono').value,
+                representante_id: parseInt(document.getElementById('representante_id').value),
+                plan_id: document.getElementById('plan_id').value ? parseInt(document.getElementById('plan_id').value) : null
+            };
+            try {
+                await api('/personas/estudiantes', { method: 'POST', body: JSON.stringify(body) });
+                toast('Estudiante registrado correctamente');
+                cerrarModal('modal');
+                ['nombres','apellidos','fecha_nacimiento','genero','diagnostico','direccion','telefono','plan_id'].forEach(id => document.getElementById(id).value = '');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function eliminar(id) {
+            if (!(await confirmar('¿Eliminar este estudiante?'))) return;
+            try {
+                await api('/personas/estudiantes/' + id, { method: 'DELETE' });
+                toast('Estudiante eliminado');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>

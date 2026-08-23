@@ -1152,16 +1152,16 @@ La estructura debe permitir agregar funcionalidades posteriormente.
 # 26. Estado actual del proyecto
 
 ```text
-[x] Idea general
-[x] Definición del sistema
-[x] Objetivo general
-[x] Objetivos específicos
-[x] Módulos principales
-[x] Stack tecnológico
-[x] Arquitectura general
-[x] Organización inicial del proyecto
-[x] Entidades iniciales
-[x] Relaciones principales
+[✓] Idea general
+[✓] Definición del sistema
+[✓] Objetivo general
+[✓] Objetivos específicos
+[✓] Módulos principales
+[✓] Stack tecnológico
+[✓] Arquitectura general
+[✓] Organización inicial del proyecto
+[✓] Entidades iniciales
+[✓] Relaciones principales
 [ ] Modelo físico definitivo de PostgreSQL
 [ ] Diagrama ER definitivo
 [ ] Diagrama de clases definitivo

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturas · Rayitos de Sol</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="flex min-h-screen">
+    <aside id="sidebar" class="w-64 flex-shrink-0 hidden lg:block"></aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="topbar px-6 py-4 flex items-center justify-between lg:hidden">
+            <h1 class="font-bold text-slate-800">☀️ Rayitos de Sol</h1>
+        </header>
+        <header class="topbar px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+            <div>
+                <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Contabilidad</p>
+                <h2 class="text-xl font-bold text-slate-800">Facturas</h2>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModal('modal')">＋ Nueva Factura</button>
+        </header>
+
+        <main class="flex-1 p-6 space-y-6">
+            <div class="page-hero flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-bold">🧾 Facturación a Representantes</h3>
+                    <p class="text-sm text-slate-300 mt-1">Control de cobros por servicios del centro</p>
+                </div>
+                <span class="text-4xl opacity-40 hidden md:block">💰</span>
+            </div>
+
+            <div class="card">
+                <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+                        <input id="buscar" class="input pl-9" placeholder="Buscar por representante, estudiante o concepto...">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="filtro-estado" class="input !w-auto">
+                            <option value="">Todas</option>
+                            <option>pendiente</option><option>pagada</option><option>vencida</option>
+                        </select>
+                        <span id="contador" class="text-xs text-slate-500 font-medium"></span>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Representante</th><th>Concepto</th><th>Subtotal</th>
+                                <th>IVA</th><th>Total</th><th>Fecha</th><th>Estado</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla"></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal" class="hidden fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4" onclick="cerrarModalConClick(event,'modal')">
+        <div class="card modal-content w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-slate-800">🧾 Nueva Factura</h3>
+                <button onclick="cerrarModal('modal')" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Representante *</label>
+                    <select id="representante_id" class="input mt-1"></select></div>
+                <div class="md:col-span-2"><label class="text-xs font-semibold text-slate-600">Concepto *</label>
+                    <input id="concepto" class="input mt-1" placeholder="Ej. Plan de terapia física"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Subtotal (USD) *</label>
+                    <input id="subtotal" type="number" step="0.01" min="0" class="input mt-1" placeholder="Ej. 50.00"></div>
+                <div><label class="text-xs font-semibold text-slate-600">Fecha *</label>
+                    <input id="fecha" type="date" class="input mt-1"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button class="btn btn-ghost" onclick="cerrarModal('modal')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardar()">💾 Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        cargarSidebar();
+        let datosGlobales = [];
+
+        async function cargar() {
+            document.getElementById('tabla').innerHTML = spinnerHtml();
+            try { datosGlobales = await api('/contabilidad/facturas'); }
+            catch (_) { document.getElementById('tabla').innerHTML = vacioHtml('Error al cargar'); return; }
+            renderizar();
+        }
+
+        function renderizar() {
+            const filtro = document.getElementById('filtro-estado').value;
+            let datos = datosGlobales;
+            if (filtro) datos = datos.filter(f => f.estado === filtro);
+
+            document.getElementById('contador').textContent = datos.length + ' factura(s)';
+            if (!datos.length) { document.getElementById('tabla').innerHTML = vacioHtml(); return; }
+
+            document.getElementById('tabla').innerHTML = datos.map(f => `
+                <tr>
+                    <td class="font-medium text-slate-500">#${f.id}</td>
+                    <td><p class="font-semibold text-slate-800">Rep. #${f.representante_id}</p></td>
+                    <td class="max-w-[180px] truncate text-xs text-slate-500">${escapeHtml(f.concepto || '—')}</td>
+                    <td>$${Number(f.subtotal || 0).toFixed(2)}</td>
+                    <td>$${Number(f.iva || 0).toFixed(2)}</td>
+                    <td class="font-semibold text-emerald-600">$${Number(f.total || 0).toFixed(2)}</td>
+                    <td>${fechaCorta(f.fecha)}</td>
+                    <td>${badge(f.estado)}</td>
+                    <td class="text-right whitespace-nowrap">
+                        ${f.estado !== 'pagada' ? `
+                        <button class="btn btn-ghost !px-2 !py-1 text-green-600" title="Registrar pago" onclick="registrarPago(${f.id})">✔️</button>` : ''}
+                    </td>
+                </tr>`).join('');
+
+            initBusqueda('buscar', '#tabla tr');
+        }
+
+        document.getElementById('filtro-estado').addEventListener('change', renderizar);
+
+        async function cargarSelects() {
+            await llenarSelect('/personas/representantes', 'representante_id', r => `${r.nombres} ${r.apellidos}`);
+        }
+
+        function validar() {
+            let ok = true;
+            ['representante_id', 'concepto', 'subtotal', 'fecha'].forEach(id => {
+                const el = document.getElementById(id);
+                const invalido = !el.value;
+                el.classList.toggle('input-error', invalido);
+                if (invalido) ok = false;
+            });
+            return ok;
+        }
+
+        async function guardar() {
+            if (!validar()) { toast('Complete los campos obligatorios', 'error'); return; }
+            const body = {
+                representante_id: parseInt(document.getElementById('representante_id').value),
+                concepto: document.getElementById('concepto').value,
+                subtotal: parseFloat(document.getElementById('subtotal').value),
+                fecha: document.getElementById('fecha').value
+            };
+            try {
+                await api('/contabilidad/facturas', { method: 'POST', body: JSON.stringify(body) });
+                toast('Factura emitida correctamente');
+                cerrarModal('modal');
+                ['representante_id','concepto','subtotal','fecha'].forEach(id => document.getElementById(id).value = '');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        async function registrarPago(id) {
+            if (!(await confirmar('¿Registrar el pago de la factura #' + id + '?'))) return;
+            try {
+                await api('/contabilidad/facturas/' + id + '/registrar-pago', { method: 'POST' });
+                toast('Pago registrado correctamente');
+                cargar();
+            } catch (e) { toast(e.message, 'error'); }
+        }
+
+        cargar();
+        cargarSelects();
+    </script>
+</body>
+</html>
